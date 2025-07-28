@@ -4,9 +4,9 @@
   become: true
 
   vars:
-    project_root: /var/lib/jenkins/workspace/ecommerce-deploy
-    frontend_dir: "{{ project_root }}/backend/frontend"
-    backend_dir: "{{ project_root }}/backend"
+    project_root: /var/lib/jenkins/workspace/ecommerce-deploy/backend
+    backend_dir: "{{ project_root }}"
+    frontend_dir: "{{ project_root }}/frontend"
     venv_path: "{{ backend_dir }}/venv"
 
   tasks:
