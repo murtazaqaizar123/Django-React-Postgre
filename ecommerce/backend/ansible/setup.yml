@@ -1,3 +1,4 @@
+---
 - name: Full setup for Django + React + PostgreSQL project (No Docker)
   hosts: localhost
   become: true
@@ -28,6 +29,7 @@
           - build-essential
           - libjpeg-dev
           - zlib1g-dev
+          - nginx
         state: present
 
     - name: Install Node.js (via setup script)
@@ -108,3 +110,48 @@
       command: yarn build
       args:
         chdir: "{{ frontend_dir }}"
+
+    - name: Copy Nginx config for project
+      copy:
+        dest: /etc/nginx/sites-available/ecommerce
+        content: |
+          server {
+              listen 80;
+              server_name localhost;
+
+              root /mnt/c/Users/User/Desktop/Django-React-2022/ecommerce/backend/frontend/build;
+              index index.html index.htm;
+
+              location / {
+                  try_files $uri /index.html;
+              }
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:8000/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+              }
+
+              location /static/ {
+                  alias /mnt/c/Users/User/Desktop/Django-React-2022/ecommerce/backend/staticfiles/;
+              }
+
+              location /media/ {
+                  alias /mnt/c/Users/User/Desktop/Django-React-2022/ecommerce/backend/media/;
+              }
+          }
+
+    - name: Enable Nginx config by linking to sites-enabled
+      file:
+        src: /etc/nginx/sites-available/ecommerce
+        dest: /etc/nginx/sites-enabled/ecommerce
+        state: link
+        force: yes
+
+    - name: Test Nginx configuration
+      command: nginx -t
+
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: restarted
