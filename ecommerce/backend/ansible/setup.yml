@@ -18,15 +18,7 @@
       apt:
         update_cache: yes
 
-    - name: Remove broken nodejs and npm from APT
-      apt:
-        name: "{{ item }}"
-        state: absent
-      loop:
-        - nodejs
-        - npm
-
-    - name: Install required system packages
+    - name: Install system packages
       apt:
         name:
           - python3
@@ -34,21 +26,9 @@
           - python3-venv
           - postgresql
           - libpq-dev
+          - nodejs
+          - npm
           - curl
-        state: present
-
-    - name: Download NodeSource install script
-      get_url:
-        url: https://deb.nodesource.com/setup_18.x
-        dest: /tmp/nodesource_setup.sh
-        mode: '0755'
-
-    - name: Run NodeSource setup script
-      command: bash /tmp/nodesource_setup.sh
-
-    - name: Install Node.js (includes npm)
-      apt:
-        name: nodejs
         state: present
 
     - name: Start and enable PostgreSQL
@@ -57,18 +37,19 @@
         state: started
         enabled: true
 
-    - name: Create PostgreSQL user
-      become_user: postgres
-      postgresql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_password }}"
-        role_attr_flags: CREATEDB
+    - name: Create PostgreSQL user safely
+      shell: |
+        sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='{{ db_user }}'" | grep -q 1 || \
+        sudo -u postgres psql -c "CREATE ROLE {{ db_user }} WITH LOGIN PASSWORD '{{ db_password }}' CREATEDB"
+      args:
+        executable: /bin/bash
 
-    - name: Create PostgreSQL database
-      become_user: postgres
-      postgresql_db:
-        name: "{{ db_name }}"
-        owner: "{{ db_user }}"
+    - name: Create PostgreSQL database safely
+      shell: |
+        sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='{{ db_name }}'" | grep -q 1 || \
+        sudo -u postgres psql -c "CREATE DATABASE {{ db_name }} OWNER {{ db_user }}"
+      args:
+        executable: /bin/bash
 
     - name: Create Python virtual environment
       command: python3 -m venv venv
@@ -106,7 +87,7 @@
       environment:
         SECRET_KEY: "your-very-secret-key"
 
-    - name: Install Yarn globally using npm
+    - name: Install Yarn
       npm:
         name: yarn
         global: yes
