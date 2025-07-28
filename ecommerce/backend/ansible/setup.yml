@@ -29,17 +29,10 @@
           - curl
         state: present
 
-    - name: Install Node.js from NodeSource
+    - name: Install Node.js (via setup script)
       shell: |
         curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
         apt-get install -y nodejs
-      args:
-        executable: /bin/bash
-
-    - name: Enable Corepack and install Yarn
-      shell: |
-        corepack enable
-        corepack prepare yarn@stable --activate
       args:
         executable: /bin/bash
 
@@ -49,16 +42,15 @@
         state: started
         enabled: true
 
-    - name: Create PostgreSQL user
-      become_user: postgres
-      shell: psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname='{{ db_user }}') THEN CREATE ROLE {{ db_user }} LOGIN PASSWORD '{{ db_password }}'; END IF; END \$\$;"
+    - name: Create PostgreSQL user manually
+      shell: |
+        sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='{{ db_user }}'" | grep -q 1 || \
+        sudo -u postgres psql -c "CREATE USER {{ db_user }} WITH PASSWORD '{{ db_password }}' CREATEDB;"
 
-    - name: Create PostgreSQL database
-      become_user: postgres
-      postgresql_db:
-        name: "{{ db_name }}"
-        owner: "{{ db_user }}"
-        state: present
+    - name: Create PostgreSQL database manually
+      shell: |
+        sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "{{ db_name }}" || \
+        sudo -u postgres createdb -O {{ db_user }} {{ db_name }}
 
     - name: Create Python virtual environment
       command: python3 -m venv venv
@@ -96,7 +88,12 @@
       environment:
         SECRET_KEY: "your-very-secret-key"
 
-    - name: Install frontend dependencies with Yarn
+    - name: Install Yarn globally
+      npm:
+        name: yarn
+        global: yes
+
+    - name: Install frontend dependencies
       command: yarn install
       args:
         chdir: "{{ frontend_dir }}"
