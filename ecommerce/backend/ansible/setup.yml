@@ -1,78 +1,78 @@
 ---
-- name: Setup and deploy Django + React project
+- name: Deploy Django + React + PostgreSQL App
   hosts: localhost
   become: true
 
   vars:
-    project_root: /var/lib/jenkins/workspace/Django-React-Postgre/ecommerce/backend
-    backend_dir: "{{ project_root }}"
-    frontend_dir: "{{ backend_dir }}/frontend"
-    venv_path: "{{ backend_dir }}/venv"
+    project_dir: /var/lib/jenkins/workspace/Django-React-Postgre/ecommerce
+    venv_path: "{{ project_dir }}/backend/venv"
+    python_path: "{{ venv_path }}/bin/python"
+    secret_key: "your-very-secret-key-here"  # Replace this with a secure key or use Jenkins credentials
 
   tasks:
-    - name: Update APT cache
-      apt:
-        update_cache: yes
 
-    - name: Install core system dependencies
+    - name: Install system dependencies
       apt:
         name:
           - python3
           - python3-pip
           - python3-venv
-          - postgresql
-          - postgresql-contrib
-          - curl
-          - nginx
+          - docker.io
+          - docker-compose
         state: present
+        update_cache: true
 
-    - name: Download Node.js 18 setup script
-      command: curl -fsSL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
-      args:
-        chdir: /tmp
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        enabled: true
+        state: started
 
-    - name: Run Node.js 18 setup script
-      command: bash nodesource_setup.sh
-      args:
-        chdir: /tmp
-
-    - name: Install Node.js (includes npm)
-      apt:
-        name: nodejs
-        state: present
-
-    - name: Install Yarn globally
-      npm:
-        name: yarn
-        global: yes
-
-    - name: Create Python virtual environment
-      command: python3 -m venv "{{ venv_path }}"
+    - name: Ensure virtual environment exists
+      command: python3 -m venv {{ venv_path }}
       args:
         creates: "{{ venv_path }}"
 
+    - name: Upgrade pip in venv
+      command: "{{ python_path }} -m pip install --upgrade pip"
+
     - name: Install Python requirements
       pip:
-        requirements: "{{ backend_dir }}/requirements.txt"
+        requirements: "{{ project_dir }}/backend/requirements.txt"
         virtualenv: "{{ venv_path }}"
-        virtualenv_command: python3 -m venv
 
     - name: Run Django migrations
-      command: "{{ venv_path }}/bin/python manage.py migrate"
+      command:
+        argv:
+          - "{{ python_path }}"
+          - manage.py
+          - migrate
       args:
-        chdir: "{{ backend_dir }}"
+        chdir: "{{ project_dir }}/backend"
+      environment:
+        SECRET_KEY: "{{ secret_key }}"
 
+    # Optional: Collect static files
     - name: Collect static files
-      command: "{{ venv_path }}/bin/python manage.py collectstatic --noinput"
+      command:
+        argv:
+          - "{{ python_path }}"
+          - manage.py
+          - collectstatic
+          - --noinput
       args:
-        chdir: "{{ backend_dir }}"
+        chdir: "{{ project_dir }}/backend"
+      environment:
+        SECRET_KEY: "{{ secret_key }}"
 
+    # Optional: Build frontend if needed (adjust path if not using React)
     - name: Install frontend dependencies
       command: yarn install
       args:
-        chdir: "{{ frontend_dir }}"
+        chdir: "{{ project_dir }}/frontend"
 
     - name: Build frontend
       command: yarn build
       args:
-        chdir: "{{ frontend_dir }}"
+        chdir: "{{ project_dir }}/frontend"
+
