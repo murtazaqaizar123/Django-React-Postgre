@@ -3,7 +3,7 @@
   become: true
 
   vars:
-    project_dir: /C:/Users/User/Desktop/Django-React-2022/ecommerce/backend
+    project_dir: /mnt/c/Users/User/Desktop/Django-React-2022/ecommerce/backend
     backend_dir: "{{ project_dir }}"
     frontend_dir: "{{ backend_dir }}/frontend"
     venv_dir: "{{ backend_dir }}/venv"
