@@ -26,7 +26,7 @@ SECRET_KEY = 'k%7v7y4s43muj2pce+b9-%8wgagt9-y2#pw7mc=i1!b54(70pg'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Set DEBUG = True to develop but not in production. 
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'thenoplacemarket.herokuapp.com']
 
