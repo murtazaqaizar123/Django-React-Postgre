@@ -4,9 +4,9 @@
   become: true
 
   vars:
-    project_root: /var/lib/jenkins/workspace/ecommerce-deploy/backend
+    project_root: C:/Users/User/Desktop/Django-React-2022/ecommerce/backend
     backend_dir: "{{ project_root }}"
-    frontend_dir: "{{ project_root }}/frontend"
+    frontend_dir: "{{ backend_dir }}/frontend"
     venv_path: "{{ backend_dir }}/venv"
 
   tasks:
@@ -14,7 +14,7 @@
       apt:
         update_cache: yes
 
-    - name: Install required system packages
+    - name: Install core system dependencies
       apt:
         name:
           - python3
@@ -22,9 +22,26 @@
           - python3-venv
           - postgresql
           - postgresql-contrib
-          - nodejs
-          - npm
+          - curl
           - nginx
+        state: present
+
+    # ---------------------------------------
+    # Install Node.js & npm using NodeSource
+    # ---------------------------------------
+    - name: Download Node.js 18 setup script
+      command: curl -fsSL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+      args:
+        chdir: /tmp
+
+    - name: Run Node.js 18 setup script
+      command: bash nodesource_setup.sh
+      args:
+        chdir: /tmp
+
+    - name: Install Node.js (includes npm)
+      apt:
+        name: nodejs
         state: present
 
     - name: Install Yarn globally
@@ -32,6 +49,9 @@
         name: yarn
         global: yes
 
+    # ---------------------------------------
+    # Python / Django Environment
+    # ---------------------------------------
     - name: Create Python virtual environment
       command: python3 -m venv "{{ venv_path }}"
       args:
@@ -48,11 +68,14 @@
       args:
         chdir: "{{ backend_dir }}"
 
-    - name: Collect Django static files
+    - name: Collect static files
       command: "{{ venv_path }}/bin/python manage.py collectstatic --noinput"
       args:
         chdir: "{{ backend_dir }}"
 
+    # ---------------------------------------
+    # React Frontend
+    # ---------------------------------------
     - name: Install frontend dependencies
       command: yarn install
       args:
