@@ -3,17 +3,15 @@
   become: true
 
   vars:
-    project_dir: /var/lib/jenkins/workspace/Django-React-Postgre/ecommerce
-    backend_dir: "{{ project_dir }}/backend"
-    frontend_dir: "{{ project_dir }}/frontend"
+    project_dir: /C:/Users/User/Desktop/Django-React-2022/ecommerce/backend
+    backend_dir: "{{ project_dir }}"
+    frontend_dir: "{{ backend_dir }}/frontend"
     venv_dir: "{{ backend_dir }}/venv"
-
     db_name: mydb
     db_user: myuser
     db_password: mypass
 
   tasks:
-
     - name: Update APT cache
       apt:
         update_cache: yes
