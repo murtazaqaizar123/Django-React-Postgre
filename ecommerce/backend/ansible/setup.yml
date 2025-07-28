@@ -1,0 +1,64 @@
+---
+- name: Setup and deploy Django + React project
+  hosts: localhost
+  become: true
+
+  vars:
+    project_root: /var/lib/jenkins/workspace/ecommerce-deploy
+    frontend_dir: "{{ project_root }}/backend/frontend"
+    backend_dir: "{{ project_root }}/backend"
+    venv_path: "{{ backend_dir }}/venv"
+
+  tasks:
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    - name: Install required system packages
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+          - postgresql
+          - postgresql-contrib
+          - nodejs
+          - npm
+          - nginx
+        state: present
+
+    - name: Install Yarn globally
+      npm:
+        name: yarn
+        global: yes
+
+    - name: Create Python virtual environment
+      command: python3 -m venv "{{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}"
+
+    - name: Install Python requirements
+      pip:
+        requirements: "{{ backend_dir }}/requirements.txt"
+        virtualenv: "{{ venv_path }}"
+        virtualenv_command: python3 -m venv
+
+    - name: Run Django migrations
+      command: "{{ venv_path }}/bin/python manage.py migrate"
+      args:
+        chdir: "{{ backend_dir }}"
+
+    - name: Collect Django static files
+      command: "{{ venv_path }}/bin/python manage.py collectstatic --noinput"
+      args:
+        chdir: "{{ backend_dir }}"
+
+    - name: Install frontend dependencies
+      command: yarn install
+      args:
+        chdir: "{{ frontend_dir }}"
+
+    - name: Build frontend
+      command: yarn build
+      args:
+        chdir: "{{ frontend_dir }}"
