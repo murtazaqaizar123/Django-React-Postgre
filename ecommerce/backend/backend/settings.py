@@ -144,6 +144,7 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME'),
         'USER': os.environ.get('DB_USER'),
         'PASSWORD':os.environ.get('DB_PASS'),
+        # When using Docker Compose, DB_HOST should be 'db'. When running locally, use 'localhost'.
         'HOST':os.environ.get('DB_HOST'),
         'PORT': os.environ.get('DB_PORT'),
     }

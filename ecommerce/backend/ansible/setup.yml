@@ -8,9 +8,9 @@
     backend_dir: "{{ project_dir }}"
     frontend_dir: "{{ backend_dir }}/frontend"
     venv_dir: "{{ backend_dir }}/venv"
-    db_name: mydb
-    db_user: myuser
-    db_password: mypass
+    db_name: postgres
+    db_user: postgres
+    db_password: postgres
 
   tasks:
     - name: Update APT cache
@@ -23,7 +23,6 @@
           - python3
           - python3-pip
           - python3-venv
-          - postgresql
           - libpq-dev
           - curl
           - build-essential
@@ -38,22 +37,6 @@
         apt-get install -y nodejs
       args:
         executable: /bin/bash
-
-    - name: Start and enable PostgreSQL
-      systemd:
-        name: postgresql
-        state: started
-        enabled: true
-
-    - name: Create PostgreSQL user manually
-      shell: |
-        sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='{{ db_user }}'" | grep -q 1 || \
-        sudo -u postgres psql -c "CREATE USER {{ db_user }} WITH PASSWORD '{{ db_password }}' CREATEDB;"
-
-    - name: Create PostgreSQL database manually
-      shell: |
-        sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "{{ db_name }}" || \
-        sudo -u postgres createdb -O {{ db_user }} {{ db_name }}
 
     - name: Create Python virtual environment
       command: python3 -m venv venv
@@ -86,7 +69,7 @@
         DB_NAME: "{{ db_name }}"
         DB_USER: "{{ db_user }}"
         DB_PASS: "{{ db_password }}"
-        DB_HOST: "localhost"
+        DB_HOST: "db"
         DB_PORT: "5432"
 
     - name: Collect Django static files
