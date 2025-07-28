@@ -1,78 +1,103 @@
 ---
-- name: Deploy Django + React + PostgreSQL App
+- name: Full setup for Django + React + PostgreSQL project (No Docker)
   hosts: localhost
   become: true
 
   vars:
     project_dir: /var/lib/jenkins/workspace/Django-React-Postgre/ecommerce
-    venv_path: "{{ project_dir }}/backend/venv"
-    python_path: "{{ venv_path }}/bin/python"
-    secret_key: "your-very-secret-key-here"  # Replace this with a secure key or use Jenkins credentials
+    backend_dir: "{{ project_dir }}/backend"
+    frontend_dir: "{{ project_dir }}/frontend"
+    venv_dir: "{{ backend_dir }}/venv"
+
+    db_name: mydb
+    db_user: myuser
+    db_password: mypass
 
   tasks:
 
-    - name: Install system dependencies
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    - name: Install system packages
       apt:
         name:
           - python3
           - python3-pip
           - python3-venv
-          - docker.io
-          - docker-compose
+          - postgresql
+          - libpq-dev
+          - nodejs
+          - npm
+          - curl
         state: present
-        update_cache: true
 
-    - name: Start and enable Docker service
+    - name: Start and enable PostgreSQL
       systemd:
-        name: docker
-        enabled: true
+        name: postgresql
         state: started
+        enabled: true
 
-    - name: Ensure virtual environment exists
-      command: python3 -m venv {{ venv_path }}
+    - name: Create PostgreSQL user
+      become_user: postgres
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        role_attr_flags: CREATEDB
+
+    - name: Create PostgreSQL database
+      become_user: postgres
+      postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
+
+    - name: Create Python virtual environment
+      command: python3 -m venv venv
       args:
-        creates: "{{ venv_path }}"
+        chdir: "{{ backend_dir }}"
+      when: not lookup('file', venv_dir, errors='ignore')
 
-    - name: Upgrade pip in venv
-      command: "{{ python_path }} -m pip install --upgrade pip"
+    - name: Upgrade pip
+      command: "{{ venv_dir }}/bin/pip install --upgrade pip"
+      args:
+        chdir: "{{ backend_dir }}"
 
-    - name: Install Python requirements
-      pip:
-        requirements: "{{ project_dir }}/backend/requirements.txt"
-        virtualenv: "{{ venv_path }}"
+    - name: Install Python dependencies
+      command: "{{ venv_dir }}/bin/pip install -r requirements.txt"
+      args:
+        chdir: "{{ backend_dir }}"
 
     - name: Run Django migrations
-      command:
-        argv:
-          - "{{ python_path }}"
-          - manage.py
-          - migrate
+      command: "{{ venv_dir }}/bin/python manage.py migrate"
       args:
-        chdir: "{{ project_dir }}/backend"
+        chdir: "{{ backend_dir }}"
       environment:
-        SECRET_KEY: "{{ secret_key }}"
+        SECRET_KEY: "your-very-secret-key"
+        DB_ENGINE: django.db.backends.postgresql
+        DB_NAME: "{{ db_name }}"
+        DB_USER: "{{ db_user }}"
+        DB_PASS: "{{ db_password }}"
+        DB_HOST: "localhost"
+        DB_PORT: "5432"
 
-    # Optional: Collect static files
-    - name: Collect static files
-      command:
-        argv:
-          - "{{ python_path }}"
-          - manage.py
-          - collectstatic
-          - --noinput
+    - name: Collect Django static files
+      command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
       args:
-        chdir: "{{ project_dir }}/backend"
+        chdir: "{{ backend_dir }}"
       environment:
-        SECRET_KEY: "{{ secret_key }}"
+        SECRET_KEY: "your-very-secret-key"
 
-    # Optional: Build frontend if needed (adjust path if not using React)
+    - name: Install Yarn
+      npm:
+        name: yarn
+        global: yes
+
     - name: Install frontend dependencies
       command: yarn install
       args:
-        chdir: "{{ project_dir }}/frontend"
+        chdir: "{{ frontend_dir }}"
 
-    - name: Build frontend
+    - name: Build React frontend
       command: yarn build
       args:
-        chdir: "{{ project_dir }}/frontend"
-
+        chdir: "{{ frontend_dir }}"
