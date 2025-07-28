@@ -1,4 +1,3 @@
----
 - name: Full setup for Django + React + PostgreSQL project (No Docker)
   hosts: localhost
   become: true
@@ -19,7 +18,15 @@
       apt:
         update_cache: yes
 
-    - name: Install system packages
+    - name: Remove broken nodejs and npm from APT
+      apt:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - nodejs
+        - npm
+
+    - name: Install required system packages
       apt:
         name:
           - python3
@@ -27,9 +34,21 @@
           - python3-venv
           - postgresql
           - libpq-dev
-          - nodejs
-          - npm
           - curl
+        state: present
+
+    - name: Download NodeSource install script
+      get_url:
+        url: https://deb.nodesource.com/setup_18.x
+        dest: /tmp/nodesource_setup.sh
+        mode: '0755'
+
+    - name: Run NodeSource setup script
+      command: bash /tmp/nodesource_setup.sh
+
+    - name: Install Node.js (includes npm)
+      apt:
+        name: nodejs
         state: present
 
     - name: Start and enable PostgreSQL
@@ -87,7 +106,7 @@
       environment:
         SECRET_KEY: "your-very-secret-key"
 
-    - name: Install Yarn
+    - name: Install Yarn globally using npm
       npm:
         name: yarn
         global: yes
