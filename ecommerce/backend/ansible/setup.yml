@@ -1,5 +1,4 @@
----
-- name: Full setup for Django + React + PostgreSQL project (No Docker)
+- name: Setup Django + React with PostgreSQL (Postgres via Docker Compose)
   hosts: localhost
   become: true
 
@@ -8,9 +7,12 @@
     backend_dir: "{{ project_dir }}"
     frontend_dir: "{{ backend_dir }}/frontend"
     venv_dir: "{{ backend_dir }}/venv"
-    db_name: postgres
-    db_user: postgres
-    db_password: postgres
+
+    db_name: mydb
+    db_user: myuser
+    db_password: mypass
+    db_host: localhost
+    db_port: "5432"
 
   tasks:
     - name: Update APT cache
@@ -29,16 +31,23 @@
           - libjpeg-dev
           - zlib1g-dev
           - nginx
+          - docker-compose
         state: present
 
-    - name: Install Node.js (via setup script)
-      shell: |
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-        apt-get install -y nodejs
-      args:
-        executable: /bin/bash
+    - name: Start PostgreSQL container with Docker Compose
+      community.docker.docker_compose:
+        project_src: "{{ backend_dir }}"
+        restarted: true
+        build: false
 
-    - name: Create Python virtual environment
+    - name: Wait for PostgreSQL to be ready
+      wait_for:
+        host: "{{ db_host }}"
+        port: "{{ db_port }}"
+        delay: 5
+        timeout: 60
+
+    - name: Create virtualenv if missing
       command: python3 -m venv venv
       args:
         chdir: "{{ backend_dir }}"
@@ -49,12 +58,12 @@
       args:
         chdir: "{{ backend_dir }}"
 
-    - name: Install Python dependencies
+    - name: Install requirements
       command: "{{ venv_dir }}/bin/pip install -r requirements.txt"
       args:
         chdir: "{{ backend_dir }}"
 
-    - name: Install Pillow explicitly (required for ImageField)
+    - name: Install Pillow
       command: "{{ venv_dir }}/bin/pip install Pillow"
       args:
         chdir: "{{ backend_dir }}"
@@ -69,22 +78,22 @@
         DB_NAME: "{{ db_name }}"
         DB_USER: "{{ db_user }}"
         DB_PASS: "{{ db_password }}"
-        DB_HOST: "db"
-        DB_PORT: "5432"
+        DB_HOST: "{{ db_host }}"
+        DB_PORT: "{{ db_port }}"
 
-    - name: Collect Django static files
+    - name: Collect static files
       command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
       args:
         chdir: "{{ backend_dir }}"
       environment:
         SECRET_KEY: "your-very-secret-key"
 
-    - name: Install Yarn globally
+    - name: Install Yarn
       npm:
         name: yarn
         global: yes
 
-    - name: Install frontend dependencies
+    - name: Install frontend deps
       command: yarn install
       args:
         chdir: "{{ frontend_dir }}"
@@ -94,7 +103,7 @@
       args:
         chdir: "{{ frontend_dir }}"
 
-    - name: Copy Nginx config for project
+    - name: Setup Nginx config
       copy:
         dest: /etc/nginx/sites-available/ecommerce
         content: |
@@ -124,14 +133,14 @@
               }
           }
 
-    - name: Enable Nginx config by linking to sites-enabled
+    - name: Enable Nginx config
       file:
         src: /etc/nginx/sites-available/ecommerce
         dest: /etc/nginx/sites-enabled/ecommerce
         state: link
         force: yes
 
-    - name: Test Nginx configuration
+    - name: Test Nginx config
       command: nginx -t
 
     - name: Restart Nginx

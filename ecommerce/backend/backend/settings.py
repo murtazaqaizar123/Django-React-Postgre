@@ -137,19 +137,15 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        #'ENGINE': 'django.db.backends.sqlite3',
-        #'NAME': BASE_DIR / 'db.sqlite3',
-
         'ENGINE': os.environ.get('DB_ENGINE'),
         'NAME': os.environ.get('DB_NAME'),
         'USER': os.environ.get('DB_USER'),
-        'PASSWORD':os.environ.get('DB_PASS'),
-        # When using Docker Compose, DB_HOST should be 'db'.
-        # When running Django outside Docker (e.g., Jenkins), DB_HOST should be 'localhost'.
-        'HOST':os.environ.get('DB_HOST'),
+        'PASSWORD': os.environ.get('DB_PASS'),
+        'HOST': os.environ.get('DB_HOST'),  # Must be 'localhost' in this case
         'PORT': os.environ.get('DB_PORT'),
     }
 }
+
 
 
 # Password validation
